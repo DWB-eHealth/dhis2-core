@@ -4130,7 +4130,7 @@ Ext.onReady( function() {
                     }
                 });
 
-                //this.toggleProgramIndicators();
+                this.toggleProgramIndicators();
             },
             toggleProgramIndicators: function(type) {
                 type = type || ns.app.typeToolbar.getType();
