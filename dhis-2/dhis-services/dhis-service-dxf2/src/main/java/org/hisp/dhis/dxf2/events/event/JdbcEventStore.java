@@ -73,14 +73,14 @@ public class JdbcEventStore
     private static final Log log = LogFactory.getLog( JdbcEventStore.class );
 
     private static final Map<String, String> QUERY_PARAM_COL_MAP = ImmutableMap.<String, String> builder()
-        .put( "event", "psi.uid" ).put( "program", "p.uid" ).put( "programStage", "ps.uid" )
-        .put( "enrollment", "pi.uid" ).put( "enrollmentStatus", "pi.status" ).put( "orgUnit", "ou.uid" )
-        .put( "orgUnitName", "ou.name" ).put( "trackedEntityInstance", "tei.uid" )
-        .put( "eventDate", "psi.executiondate" ).put( "followup", "pi.followup" ).put( "status", "psi.status" )
-        .put( "dueDate", "psi.duedate" ).put( "storedBy", "psi.storedby" ).put( "created", "psi.created" )
-        .put( "lastUpdated", "psi.lastupdated" ).put( "completedBy", "psi.completedby" )
-        .put( "attributeOptionCombo", "psi.aoc" ).put( "completedDate", "psi.completeddate" )
-        .put( "deleted", "psi.deleted" ).build();
+        .put( "event", "psi_uid" ).put( "program", "p_uid" ).put( "programStage", "ps_uid" )
+        .put( "enrollment", "pi_uid" ).put( "enrollmentStatus", "pi_status" ).put( "orgUnit", "ou_uid" )
+        .put( "orgUnitName", "ou_name" ).put( "trackedEntityInstance", "tei_uid" )
+        .put( "eventDate", "psi_executiondate" ).put( "followup", "pi_followup" ).put( "status", "psi_status" )
+        .put( "dueDate", "psi_duedate" ).put( "storedBy", "psi_storedby" ).put( "created", "psi_created" )
+        .put( "lastUpdated", "psi_lastupdated" ).put( "completedBy", "psi_completedby" )
+        .put( "attributeOptionCombo", "psi_aoc" ).put( "completedDate", "psi_completeddate" )
+        .put( "deleted", "psi_deleted" ).build();
 
     // -------------------------------------------------------------------------
     // Dependencies
@@ -483,6 +483,8 @@ public class JdbcEventStore
         sql += getCommentQuery();
 
         sql += ") as cm on event.psi_id=cm.psic_id ";
+
+        sql += getOrderQuery( params.getOrders() );
 
         return sql;
     }
