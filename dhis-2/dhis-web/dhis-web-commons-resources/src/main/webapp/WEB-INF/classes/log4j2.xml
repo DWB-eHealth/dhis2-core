@@ -4,8 +4,8 @@
         <Console name="LogToConsole" target="SYSTEM_OUT">
             <PatternLayout pattern="[%-5level] %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} - %msg%n" />
         </Console>
-        <RollingFile name="LogToRollingFileHIS" fileName="${sys:DHIS2_HOME}/logs/dhis.log"
-                     filePattern="${sys:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-%d{MM-dd-yyyy}-%i.log.gz">
+        <RollingFile name="LogToRollingFileHIS" fileName="${env:DHIS2_HOME}/logs/dhis.log"
+                     filePattern="${env:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-%d{MM-dd-yyyy}-%i.log.gz">
             <PatternLayout>
                 <Pattern>* %-5p %d{ISO8601} %m (%F [%t])%n</Pattern>
             </PatternLayout>
@@ -14,8 +14,8 @@
                 <SizeBasedTriggeringPolicy size="20 MB"/>
             </Policies>
         </RollingFile>
-        <RollingFile name="LogToRollingFileAnalytics" fileName="${sys:DHIS2_HOME}/logs/dhis-analytics-table.log"
-                     filePattern="${sys:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-analytics-table-%d{MM-dd-yyyy}-%i.log.gz">
+        <RollingFile name="LogToRollingFileAnalytics" fileName="${env:DHIS2_HOME}/logs/dhis-analytics-table.log"
+                     filePattern="${env:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-analytics-table-%d{MM-dd-yyyy}-%i.log.gz">
             <PatternLayout>
                 <Pattern>* %-5p %d{ISO8601} %m (%F [%t])%n</Pattern>
             </PatternLayout>
@@ -24,8 +24,8 @@
                 <SizeBasedTriggeringPolicy size="20 MB"/>
             </Policies>
         </RollingFile>
-        <RollingFile name="LogToRollingFileDataExchange" fileName="${sys:DHIS2_HOME}/logs/dhis-data-exchange.log"
-                     filePattern="${sys:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-data-exchange-%d{MM-dd-yyyy}-%i.log.gz">
+        <RollingFile name="LogToRollingFileDataExchange" fileName="${env:DHIS2_HOME}/logs/dhis-data-exchange.log"
+                     filePattern="${env:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-data-exchange-%d{MM-dd-yyyy}-%i.log.gz">
             <PatternLayout>
                 <Pattern>* %-5p %d{ISO8601} %m (%F [%t])%n</Pattern>
             </PatternLayout>
@@ -34,8 +34,8 @@
                 <SizeBasedTriggeringPolicy size="20 MB"/>
             </Policies>
         </RollingFile>
-        <RollingFile name="LogToRollingFileDataSync" fileName="${sys:DHIS2_HOME}/logs/dhis-data-sync.log"
-                     filePattern="${sys:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-data-sync-%d{MM-dd-yyyy}-%i.log.gz">
+        <RollingFile name="LogToRollingFileDataSync" fileName="${env:DHIS2_HOME}/logs/dhis-data-sync.log"
+                     filePattern="${env:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-data-sync-%d{MM-dd-yyyy}-%i.log.gz">
             <PatternLayout>
                 <Pattern>* %-5p %d{ISO8601} %m (%F [%t])%n</Pattern>
             </PatternLayout>
@@ -44,8 +44,8 @@
                 <SizeBasedTriggeringPolicy size="20 MB"/>
             </Policies>
         </RollingFile>
-        <RollingFile name="LogToRollingFileMetadataSync" fileName="${sys:DHIS2_HOME}/logs/dhis-metadata-sync.log"
-                     filePattern="${sys:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-metadata-sync-%d{MM-dd-yyyy}-%i.log.gz">
+        <RollingFile name="LogToRollingFileMetadataSync" fileName="${env:DHIS2_HOME}/logs/dhis-metadata-sync.log"
+                     filePattern="${env:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-metadata-sync-%d{MM-dd-yyyy}-%i.log.gz">
             <PatternLayout>
                 <Pattern>* %-5p %d{ISO8601} %m (%F [%t])%n</Pattern>
             </PatternLayout>
@@ -54,8 +54,8 @@
                 <SizeBasedTriggeringPolicy size="20 MB"/>
             </Policies>
         </RollingFile>
-        <RollingFile name="LogToRollingFilePushAnalysis" fileName="${sys:DHIS2_HOME}/logs/dhis-push-analysis.log"
-                     filePattern="${sys:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-push-analysis-%d{MM-dd-yyyy}-%i.log.gz">
+        <RollingFile name="LogToRollingFilePushAnalysis" fileName="${env:DHIS2_HOME}/logs/dhis-push-analysis.log"
+                     filePattern="${env:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-push-analysis-%d{MM-dd-yyyy}-%i.log.gz">
             <PatternLayout>
                 <Pattern>* %-5p %d{ISO8601} %m (%F [%t])%n</Pattern>
             </PatternLayout>
