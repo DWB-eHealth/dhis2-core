@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="INFO">
+    <Appenders>
+        <Console name="LogToConsole" target="SYSTEM_OUT">
+            <PatternLayout pattern="[%-5level] %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} - %msg%n" />
+        </Console>
+        <RollingFile name="LogToRollingFileHIS" fileName="${sys:DHIS2_HOME}/logs/dhis.log"
+                     filePattern="${sys:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-%d{MM-dd-yyyy}-%i.log.gz">
+            <PatternLayout>
+                <Pattern>* %-5p %d{ISO8601} %m (%F [%t])%n</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy />
+                <SizeBasedTriggeringPolicy size="20 MB"/>
+            </Policies>
+        </RollingFile>
+        <RollingFile name="LogToRollingFileAnalytics" fileName="${sys:DHIS2_HOME}/logs/dhis-analytics-table.log"
+                     filePattern="${sys:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-analytics-table-%d{MM-dd-yyyy}-%i.log.gz">
+            <PatternLayout>
+                <Pattern>* %-5p %d{ISO8601} %m (%F [%t])%n</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy />
+                <SizeBasedTriggeringPolicy size="20 MB"/>
+            </Policies>
+        </RollingFile>
+        <RollingFile name="LogToRollingFileDataExchange" fileName="${sys:DHIS2_HOME}/logs/dhis-data-exchange.log"
+                     filePattern="${sys:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-data-exchange-%d{MM-dd-yyyy}-%i.log.gz">
+            <PatternLayout>
+                <Pattern>* %-5p %d{ISO8601} %m (%F [%t])%n</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy />
+                <SizeBasedTriggeringPolicy size="20 MB"/>
+            </Policies>
+        </RollingFile>
+        <RollingFile name="LogToRollingFileDataSync" fileName="${sys:DHIS2_HOME}/logs/dhis-data-sync.log"
+                     filePattern="${sys:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-data-sync-%d{MM-dd-yyyy}-%i.log.gz">
+            <PatternLayout>
+                <Pattern>* %-5p %d{ISO8601} %m (%F [%t])%n</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy />
+                <SizeBasedTriggeringPolicy size="20 MB"/>
+            </Policies>
+        </RollingFile>
+        <RollingFile name="LogToRollingFileMetadataSync" fileName="${sys:DHIS2_HOME}/logs/dhis-metadata-sync.log"
+                     filePattern="${sys:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-metadata-sync-%d{MM-dd-yyyy}-%i.log.gz">
+            <PatternLayout>
+                <Pattern>* %-5p %d{ISO8601} %m (%F [%t])%n</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy />
+                <SizeBasedTriggeringPolicy size="20 MB"/>
+            </Policies>
+        </RollingFile>
+        <RollingFile name="LogToRollingFilePushAnalysis" fileName="${sys:DHIS2_HOME}/logs/dhis-push-analysis.log"
+                     filePattern="${sys:DHIS2_HOME}/logs/$${date:yyyy-MM}/dhis-push-analysis-%d{MM-dd-yyyy}-%i.log.gz">
+            <PatternLayout>
+                <Pattern>* %-5p %d{ISO8601} %m (%F [%t])%n</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy />
+                <SizeBasedTriggeringPolicy size="20 MB"/>
+            </Policies>
+        </RollingFile>
+    </Appenders>
+    <Loggers>
+        <Logger name="org.hisp.dhis" level="debug" additivity="false">
+            <AppenderRef ref="LogToRollingFileHIS"/>
+        </Logger>
+        <Logger name="org.hisp.dhis.resourcetable" level="debug" additivity="false">
+            <AppenderRef ref="LogToRollingFileAnalytics"/>
+        </Logger>
+        <Logger name="org.hisp.dhis.analytics.table" level="debug" additivity="false">
+            <AppenderRef ref="LogToRollingFileAnalytics"/>
+        </Logger>
+        <Logger name="org.hisp.dhis.dxf2" level="debug" additivity="false">
+            <AppenderRef ref="LogToRollingFileDataExchange"/>
+        </Logger>
+        <Logger name="org.hisp.dhis.dxf2.synch" level="debug" additivity="false">
+            <AppenderRef ref="LogToRollingFileDataSync"/>
+        </Logger>
+        <Logger name="org.hisp.dhis.dxf2.metadata" level="debug" additivity="false">
+            <AppenderRef ref="LogToRollingFileMetadataSync"/>
+        </Logger>
+        <Logger name="org.hisp.dhis.pushanalysis" level="debug" additivity="false">
+            <AppenderRef ref="LogToRollingFilePushAnalysis"/>
+        </Logger>
+        <Root level="error">
+            <AppenderRef ref="LogToConsole"/>
+        </Root>
+    </Loggers>
+</Configuration>

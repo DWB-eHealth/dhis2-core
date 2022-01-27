@@ -30,11 +30,10 @@ package org.hisp.dhis;
 
 import java.util.Properties;
 
+import lombok.extern.slf4j.Slf4j;
 import org.hisp.dhis.container.DhisPostgisContainerProvider;
 import org.hisp.dhis.container.DhisPostgreSQLContainer;
 import org.hisp.dhis.external.conf.DhisConfigurationProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -45,9 +44,9 @@ import org.testcontainers.containers.JdbcDatabaseContainer;
  */
 @Configuration
 @ComponentScan( "org.hisp.dhis" )
+@Slf4j
 public class IntegrationTestConfig
 {
-    private static final Logger log = LoggerFactory.getLogger(IntegrationTestConfig.class);
     private static final String POSTGRES_DATABASE_NAME = "dhis";
 
     private static final String POSTGRES_CREDENTIALS = "dhis";

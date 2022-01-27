@@ -28,6 +28,7 @@ package org.hisp.dhis.security.spring2fa;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.validator.routines.LongValidator;
@@ -35,8 +36,6 @@ import org.hisp.dhis.security.SecurityService;
 import org.hisp.dhis.security.SecurityUtils;
 import org.hisp.dhis.user.UserCredentials;
 import org.hisp.dhis.user.UserService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -48,11 +47,10 @@ import org.springframework.security.web.authentication.preauth.PreAuthenticatedC
 /**
  * @author Henning Håkonsen
  */
+@Slf4j
 public class TwoFactorAuthenticationProvider
     extends DaoAuthenticationProvider
 {
-    private static final Logger log = LoggerFactory.getLogger( TwoFactorAuthenticationProvider.class );
-
     private UserService userService;
 
     public void setUserService( UserService userService )
