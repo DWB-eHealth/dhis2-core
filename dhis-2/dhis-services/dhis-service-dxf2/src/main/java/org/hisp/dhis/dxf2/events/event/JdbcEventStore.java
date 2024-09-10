@@ -852,15 +852,31 @@ public class JdbcEventStore implements EventStore {
 
     if (params.hasFilters()) {
       sql = buildGridSql(params, mapSqlParameterSource, user);
+
+      sql = sql.replaceFirst("select .*? from", "select count(*) from");
+
+      sql = sql.replaceFirst("order .*? (desc|asc)", "");
+
+      sql = sql.replaceFirst("limit \\d+ offset \\d+", "");
     } else {
-      sql = getEventSelectQuery(params, mapSqlParameterSource, user);
-    }
+      String sqlWithAccessCheck = customEventSelectQuery(params, mapSqlParameterSource, user, true);
+      sqlWithAccessCheck = sqlWithAccessCheck.replaceFirst("select .*? from", "select psi.uid from");
+      sqlWithAccessCheck = sqlWithAccessCheck.replaceFirst("order .*? (desc|asc)", "");
+      sqlWithAccessCheck = sqlWithAccessCheck.replaceFirst("limit \\d+ offset \\d+", "");
 
-    sql = sql.replaceFirst("select .*? from", "select count(*) from");
+      String sqlWithoutAccessCheck = customEventSelectQuery(params, mapSqlParameterSource, user, false);
+      sqlWithoutAccessCheck = sqlWithoutAccessCheck.replaceFirst("select .*? from", "select psi.uid from");
+      sqlWithoutAccessCheck = sqlWithoutAccessCheck.replaceFirst("order .*? (desc|asc)", "");
+      sqlWithoutAccessCheck = sqlWithoutAccessCheck.replaceFirst("limit \\d+ offset \\d+", "");
 
-    sql = sql.replaceFirst("order .*? (desc|asc)", "");
+      StringBuilder sqlBuilder = new StringBuilder().append("select count(*) from ((");
+      sqlBuilder.append(sqlWithAccessCheck);
+      sqlBuilder.append(") UNION (");
+      sqlBuilder.append(sqlWithoutAccessCheck);
+      sqlBuilder.append(")) a;");
 
-    sql = sql.replaceFirst("limit \\d+ offset \\d+", "");
+      sql = sqlBuilder.toString();
+    };
 
     log.debug("Event query count SQL: " + sql);
 
@@ -1060,6 +1076,57 @@ public class JdbcEventStore implements EventStore {
     return query.toString();
   }
 
+  private String customEventSelectQuery(
+      EventQueryParams params, MapSqlParameterSource mapSqlParameterSource, User user, Boolean includeAccessLevelCheck) {
+    SqlHelper hlp = new SqlHelper();
+
+    StringBuilder selectBuilder =
+        new StringBuilder()
+            .append("select ")
+            .append(getEventSelectIdentifiersByIdScheme(params))
+            .append(" psi.uid as psi_uid, ")
+            .append("ou.uid as ou_uid, p.uid as p_uid, ")
+            .append(
+                "psi.programstageinstanceid as psi_id, psi.status as psi_status, psi.executiondate as psi_executiondate, ")
+            .append(
+                "psi.eventdatavalues as psi_eventdatavalues, psi.duedate as psi_duedate, psi.completedby as psi_completedby, psi.storedby as psi_storedby, ")
+            .append(
+                "psi.created as psi_created, psi.createdbyuserinfo as psi_createdbyuserinfo, psi.lastupdated as psi_lastupdated, psi.lastupdatedbyuserinfo as psi_lastupdatedbyuserinfo, ")
+            .append("psi.completeddate as psi_completeddate, psi.deleted as psi_deleted, ")
+            .append(
+                "ST_AsText( psi.geometry ) as psi_geometry, au.uid as user_assigned, (au.firstName || ' ' || au.surName) as user_assigned_name,")
+            .append(
+                "au.firstName as user_assigned_first_name, au.surName as user_assigned_surname, ")
+            .append("au.username as user_assigned_username,")
+            .append("coc_agg.uid as coc_uid, ")
+            .append("coc_agg.co_uids AS co_uids, ")
+            .append("coc_agg.co_count AS option_size, ");
+
+    for (OrderParam orderParam : params.getAttributeOrders()) {
+      selectBuilder
+          .append(quote(orderParam.getField()))
+          .append(".value AS ")
+          .append(orderParam.getField())
+          .append("_value, ");
+    }
+
+    return selectBuilder
+        .append(
+            "pi.uid as pi_uid, pi.status as pi_status, pi.followup as pi_followup, pi.enrollmentdate as pi_enrollmentdate, pi.incidentdate as pi_incidentdate, ")
+        .append("p.type as p_type, ps.uid as ps_uid, ou.name as ou_name, ")
+        .append(
+            "tei.trackedentityinstanceid as tei_id, tei.uid as tei_uid, teiou.uid as tei_ou, teiou.name as tei_ou_name, tei.created as tei_created, tei.inactive as tei_inactive ")
+        .append(
+            customGetFromWhereClause(
+                params,
+                mapSqlParameterSource,
+                user,
+                hlp,
+                dataElementAndFiltersSql(params, mapSqlParameterSource, hlp, selectBuilder),
+                includeAccessLevelCheck))
+        .toString();
+  }
+
   private String getEventSelectQuery(
       EventQueryParams params, MapSqlParameterSource mapSqlParameterSource, User user) {
     SqlHelper hlp = new SqlHelper();
@@ -1121,6 +1188,374 @@ public class JdbcEventStore implements EventStore {
 
   private String getOuTableName(EventQueryParams params) {
     return checkForOwnership(params) ? " psiou" : " ou";
+  }
+
+  private StringBuilder customGetFromWhereClause(
+      EventQueryParams params,
+      MapSqlParameterSource mapSqlParameterSource,
+      User user,
+      SqlHelper hlp,
+      StringBuilder dataElementAndFiltersSql,
+      Boolean includeAccessLevelCheck) {
+
+    StringBuilder fromBuilder = new StringBuilder(" from programstageinstance psi ")
+        .append("inner join programinstance pi on pi.programinstanceid=psi.programinstanceid ")
+        .append("inner join program p on p.programid=pi.programid ")
+        .append("inner join programstage ps on ps.programstageid=psi.programstageid ");
+
+    if (checkForOwnership(params)) {
+      fromBuilder
+          .append(
+              "left join trackedentityprogramowner po on (pi.trackedentityinstanceid=po.trackedentityinstanceid) ")
+          .append(
+              "inner join organisationunit psiou on (coalesce(po.organisationunitid, psi.organisationunitid)=psiou.organisationunitid) ")
+          .append(
+              "inner join organisationunit ou on (psi.organisationunitid=ou.organisationunitid) ");
+    } else {
+      fromBuilder.append(
+          "inner join organisationunit ou on psi.organisationunitid=ou.organisationunitid ");
+    }
+
+    fromBuilder
+        .append(
+            "left join trackedentityinstance tei on tei.trackedentityinstanceid=pi.trackedentityinstanceid ")
+        .append(
+            "left join organisationunit teiou on (tei.organisationunitid=teiou.organisationunitid) ")
+        .append("left join userinfo au on (psi.assigneduserid=au.userinfoid) ");
+
+    // JOIN attributes we need to filter on.
+    fromBuilder.append(joinAttributeValue(params));
+
+    // LEFT JOIN not filterable attributes we need to sort on.
+    fromBuilder.append(getFromSubQueryJoinOrderByAttributes(params));
+
+    fromBuilder.append(getCategoryOptionComboQuery(user));
+
+    fromBuilder.append(dataElementAndFiltersSql);
+
+    if (params.getTrackedEntityInstance() != null) {
+      mapSqlParameterSource.addValue(
+          "trackedentityinstanceid", params.getTrackedEntityInstance().getId());
+
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" tei.trackedentityinstanceid= ")
+          .append(":trackedentityinstanceid")
+          .append(" ");
+    }
+
+    if (params.getProgram() != null) {
+      mapSqlParameterSource.addValue("programid", params.getProgram().getId());
+
+      fromBuilder.append(hlp.whereAnd()).append(" p.programid = ").append(":programid").append(" ");
+    }
+
+    if (params.getProgramStage() != null) {
+      mapSqlParameterSource.addValue("programstageid", params.getProgramStage().getId());
+
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" ps.programstageid = ")
+          .append(":programstageid")
+          .append(" ");
+    }
+
+    if (params.getProgramStatus() != null) {
+      mapSqlParameterSource.addValue("program_status", params.getProgramStatus().name());
+
+      fromBuilder.append(hlp.whereAnd()).append(" pi.status = ").append(":program_status ");
+    }
+
+    if (params.getEnrollmentEnrolledBefore() != null) {
+      mapSqlParameterSource.addValue(
+          "enrollmentEnrolledBefore", params.getEnrollmentEnrolledBefore(), Types.TIMESTAMP);
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" (pi.enrollmentdate <= :enrollmentEnrolledBefore ) ");
+    }
+
+    if (params.getEnrollmentEnrolledAfter() != null) {
+      mapSqlParameterSource.addValue(
+          "enrollmentEnrolledAfter", params.getEnrollmentEnrolledAfter(), Types.TIMESTAMP);
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" (pi.enrollmentdate >= :enrollmentEnrolledAfter ) ");
+    }
+
+    if (params.getEnrollmentOccurredBefore() != null) {
+      mapSqlParameterSource.addValue(
+          "enrollmentOccurredBefore", params.getEnrollmentOccurredBefore(), Types.TIMESTAMP);
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" (pi.incidentdate <= :enrollmentOccurredBefore ) ");
+    }
+
+    if (params.getEnrollmentOccurredAfter() != null) {
+      mapSqlParameterSource.addValue(
+          "enrollmentOccurredAfter", params.getEnrollmentOccurredAfter(), Types.TIMESTAMP);
+      fromBuilder.append(hlp.whereAnd()).append(" (pi.incidentdate >= :enrollmentOccurredAfter ) ");
+    }
+
+    if (params.getDueDateStart() != null) {
+      mapSqlParameterSource.addValue("startDueDate", params.getDueDateStart(), Types.TIMESTAMP);
+
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" (psi.duedate is not null and psi.duedate >= :startDueDate ) ");
+    }
+
+    if (params.getDueDateEnd() != null) {
+      mapSqlParameterSource.addValue("endDueDate", params.getDueDateEnd(), Types.TIMESTAMP);
+
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" (psi.duedate is not null and psi.duedate <= :endDueDate ) ");
+    }
+
+    if (params.getFollowUp() != null) {
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" pi.followup is ")
+          .append(Boolean.TRUE.equals(params.getFollowUp()) ? "true" : "false")
+          .append(" ");
+    }
+
+    fromBuilder.append(addLastUpdatedFilters(params, mapSqlParameterSource, hlp, true));
+
+    // Comparing milliseconds instead of always creating new Date( 0 );
+    if (params.getSkipChangedBefore() != null && params.getSkipChangedBefore().getTime() > 0) {
+      mapSqlParameterSource.addValue(
+          "skipChangedBefore", params.getSkipChangedBefore(), Types.TIMESTAMP);
+
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(PSI_LASTUPDATED_GT)
+          .append(":skipChangedBefore")
+          .append(" ");
+    }
+
+    if (params.getCategoryOptionCombo() != null) {
+      mapSqlParameterSource.addValue(
+          "attributeoptioncomboid", params.getCategoryOptionCombo().getId());
+
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" psi.attributeoptioncomboid = ")
+          .append(":attributeoptioncomboid")
+          .append(" ");
+    }
+
+    String orgUnitSql = customGetOrgUnitSql(params, user, mapSqlParameterSource, includeAccessLevelCheck);
+
+    if (!isNullOrEmpty(orgUnitSql)) {
+      fromBuilder.append(hlp.whereAnd()).append(" (").append(orgUnitSql).append(") ");
+    }
+
+    if (params.getStartDate() != null) {
+      mapSqlParameterSource.addValue("startDate", params.getStartDate(), Types.TIMESTAMP);
+
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" (psi.executiondate >= ")
+          .append(":startDate")
+          .append(" or (psi.executiondate is null and psi.duedate >= ")
+          .append(":startDate")
+          .append(" )) ");
+    }
+
+    if (params.getEndDate() != null) {
+      mapSqlParameterSource.addValue("endDate", params.getEndDate(), Types.TIMESTAMP);
+
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" (psi.executiondate < ")
+          .append(":endDate")
+          .append(" or (psi.executiondate is null and psi.duedate < ")
+          .append(":endDate")
+          .append(" )) ");
+    }
+
+    if (params.getProgramType() != null) {
+      mapSqlParameterSource.addValue("programType", params.getProgramType().name());
+
+      fromBuilder.append(hlp.whereAnd()).append(" p.type = ").append(":programType").append(" ");
+    }
+
+    fromBuilder.append(eventStatusSql(params, mapSqlParameterSource, hlp));
+
+    if (params.getEvents() != null && !params.getEvents().isEmpty() && !params.hasFilters()) {
+      mapSqlParameterSource.addValue("psi_uid", params.getEvents());
+
+      fromBuilder.append(hlp.whereAnd()).append(" (psi.uid in (").append(":psi_uid").append(")) ");
+    }
+
+    if (params.getAssignedUserQueryParam().hasAssignedUsers()) {
+      mapSqlParameterSource.addValue(
+          "au_uid", params.getAssignedUserQueryParam().getAssignedUsers());
+
+      fromBuilder.append(hlp.whereAnd()).append(" (au.uid in (").append(":au_uid").append(")) ");
+    }
+
+    if (AssignedUserSelectionMode.NONE == params.getAssignedUserQueryParam().getMode()) {
+      fromBuilder.append(hlp.whereAnd()).append(" (au.uid is null) ");
+    }
+
+    if (AssignedUserSelectionMode.ANY == params.getAssignedUserQueryParam().getMode()) {
+      fromBuilder.append(hlp.whereAnd()).append(" (au.uid is not null) ");
+    }
+
+    if (!params.isIncludeDeleted()) {
+      fromBuilder.append(hlp.whereAnd()).append(" psi.deleted is false ");
+    }
+
+    if (params.hasSecurityFilter()) {
+      mapSqlParameterSource.addValue(
+          "program_uid",
+          params.getAccessiblePrograms().isEmpty() ? null : params.getAccessiblePrograms());
+
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" (p.uid in (")
+          .append(":program_uid")
+          .append(")) ");
+
+      mapSqlParameterSource.addValue(
+          "programstage_uid",
+          params.getAccessibleProgramStages().isEmpty()
+              ? null
+              : params.getAccessibleProgramStages());
+
+      fromBuilder
+          .append(hlp.whereAnd())
+          .append(" (ps.uid in (")
+          .append(":programstage_uid")
+          .append(")) ");
+    }
+
+    if (params.isSynchronizationQuery()) {
+      fromBuilder.append(hlp.whereAnd()).append(" psi.lastupdated > psi.lastsynchronized ");
+    }
+
+    if (!CollectionUtils.isEmpty(params.getProgramInstances())) {
+      mapSqlParameterSource.addValue("programinstance_uid", params.getProgramInstances());
+
+      fromBuilder.append(hlp.whereAnd()).append(" (pi.uid in (:programinstance_uid)) ");
+    }
+
+    return fromBuilder;
+  }
+
+  private String customGetOrgUnitSql(
+      EventQueryParams params, User user, MapSqlParameterSource mapSqlParameterSource, Boolean includeAccessLevelCheck) {
+    switch (params.getOrgUnitSelectionMode()) {
+      case CAPTURE:
+        return createCaptureSql(user, mapSqlParameterSource);
+      case ACCESSIBLE:
+        return customCreateAccessibleSql(user, params, mapSqlParameterSource, includeAccessLevelCheck);
+      case DESCENDANTS:
+        return customCreateDescendantsSql(user, params, mapSqlParameterSource, includeAccessLevelCheck);
+      case CHILDREN:
+        return customCreateChildrenSql(user, params, mapSqlParameterSource, includeAccessLevelCheck);
+      case SELECTED:
+        return customCreateSelectedSql(user, params, mapSqlParameterSource, includeAccessLevelCheck);
+      default:
+        return null;
+    }
+  }
+
+  private String customCreateAccessibleSql(
+      User user, EventQueryParams params, MapSqlParameterSource mapSqlParameterSource, Boolean includeAccessLevelCheck) {
+
+    if (isProgramRestricted(params.getProgram()) || isUserSearchScopeNotSet(user)) {
+      return createCaptureSql(user, mapSqlParameterSource);
+    }
+
+    mapSqlParameterSource.addValue(COLUMN_USER_UID, user.getUid());
+    return customGetSearchAndCaptureScopeOrgUnitPathMatchQuery(USER_SCOPE_ORG_UNIT_PATH_LIKE_MATCH_QUERY,
+        includeAccessLevelCheck);
+  }
+
+  private String customCreateDescendantsSql(
+      User user, EventQueryParams params, MapSqlParameterSource mapSqlParameterSource,
+      Boolean includeAccessLevelCheck) {
+    mapSqlParameterSource.addValue(COLUMN_ORG_UNIT_PATH, params.getOrgUnit().getPath());
+
+    if (isProgramRestricted(params.getProgram())) {
+      return createCaptureScopeQuery(
+          user, mapSqlParameterSource, AND + CUSTOM_ORG_UNIT_PATH_LIKE_MATCH_QUERY);
+    }
+
+    mapSqlParameterSource.addValue(COLUMN_USER_UID, user.getUid());
+    return customGetSearchAndCaptureScopeOrgUnitPathMatchQuery(CUSTOM_ORG_UNIT_PATH_LIKE_MATCH_QUERY,
+        includeAccessLevelCheck);
+  }
+
+  private String customCreateChildrenSql(
+      User user, EventQueryParams params, MapSqlParameterSource mapSqlParameterSource,
+      Boolean includeAccessLevelCheck) {
+    mapSqlParameterSource.addValue(COLUMN_ORG_UNIT_PATH, params.getOrgUnit().getPath());
+
+    String customChildrenQuery = " AND (ou.hierarchylevel = "
+        + params.getOrgUnit().getHierarchyLevel()
+        + " OR ou.hierarchylevel = "
+        + (params.getOrgUnit().getHierarchyLevel() + 1)
+        + " ) ";
+
+    if (isProgramRestricted(params.getProgram())) {
+      return createCaptureScopeQuery(
+          user,
+          mapSqlParameterSource,
+          AND + CUSTOM_ORG_UNIT_PATH_LIKE_MATCH_QUERY + customChildrenQuery);
+    }
+
+    mapSqlParameterSource.addValue(COLUMN_USER_UID, user.getUid());
+    return customGetSearchAndCaptureScopeOrgUnitPathMatchQuery(
+        CUSTOM_ORG_UNIT_PATH_LIKE_MATCH_QUERY + customChildrenQuery, includeAccessLevelCheck);
+  }
+
+  private String customCreateSelectedSql(
+      User user, EventQueryParams params, MapSqlParameterSource mapSqlParameterSource,
+      Boolean includeAccessLevelCheck) {
+    mapSqlParameterSource.addValue(COLUMN_ORG_UNIT_PATH, params.getOrgUnit().getPath());
+
+    String orgUnitPathEqualsMatchQuery = " ou.path = :"
+        + COLUMN_ORG_UNIT_PATH
+        + " "
+        + AND
+        + USER_SCOPE_ORG_UNIT_PATH_LIKE_MATCH_QUERY;
+
+    if (isProgramRestricted(params.getProgram())) {
+      String customSelectedClause = " AND ou.path = :" + COLUMN_ORG_UNIT_PATH + " ";
+      return createCaptureScopeQuery(user, mapSqlParameterSource, customSelectedClause);
+    }
+
+    mapSqlParameterSource.addValue(COLUMN_USER_UID, user.getUid());
+    return customGetSearchAndCaptureScopeOrgUnitPathMatchQuery(orgUnitPathEqualsMatchQuery, includeAccessLevelCheck);
+  }
+
+  private static String customGetSearchAndCaptureScopeOrgUnitPathMatchQuery(String orgUnitMatcher, Boolean includeAccessLevelCheck) {
+    if (includeAccessLevelCheck) {
+      return " (EXISTS(SELECT ss.organisationunitid "
+          + " FROM userteisearchorgunits ss "
+          + " JOIN userinfo u ON u.userinfoid = ss.userinfoid "
+          + " JOIN organisationunit orgunit ON orgunit.organisationunitid = ss.organisationunitid "
+          + " WHERE u.uid = :"
+          + COLUMN_USER_UID
+          + AND
+          + orgUnitMatcher
+          + " AND p.accesslevel in ('OPEN', 'AUDITED')) "
+          + " ) ";
+    } else {
+      return "(EXISTS(SELECT cs.organisationunitid "
+          + " FROM usermembership cs "
+          + " JOIN userinfo u ON u.userinfoid = cs.userinfoid "
+          + " JOIN organisationunit orgunit ON orgunit.organisationunitid = cs.organisationunitid "
+          + " WHERE u.uid = :"
+          + COLUMN_USER_UID
+          + AND
+          + orgUnitMatcher
+          + " )) ";
+    }
   }
 
   private StringBuilder getFromWhereClause(
